@@ -3,12 +3,14 @@
 import typer
 
 from bho import __version__
+from bho.commands.hermes import app as hermes_app
 
 app = typer.Typer(
     name="bho",
     help="Manage Hermes Agent and software projects.",
     no_args_is_help=True,
 )
+app.add_typer(hermes_app, name="hermes")
 
 
 @app.callback()

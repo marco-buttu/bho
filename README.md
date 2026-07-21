@@ -345,9 +345,9 @@ bho git commit TASK_ID
 ### Phase 2: Hermes management
 
 - [ ] Implement `bho hermes install`.
-- [ ] Detect an existing Hermes installation.
+- [x] Detect an existing Hermes installation.
 - [ ] Store the installed Hermes version.
-- [ ] Implement `bho hermes status`.
+- [x] Implement `bho hermes status`.
 - [ ] Implement `bho hermes configure`.
 - [ ] Implement `bho hermes uninstall`.
 - [ ] Preserve Hermes data by default during uninstall.
