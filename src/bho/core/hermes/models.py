@@ -13,3 +13,21 @@ class HermesStatus:
     version: str | None
     configuration_present: bool
     managed_by_bho: bool
+    installation_method: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HermesInstallResult:
+    """Describe the result of a Hermes installation request."""
+
+    status: HermesStatus
+    installed_now: bool
+
+
+@dataclass(frozen=True, slots=True)
+class HermesUninstallResult:
+    """Describe the result of a Hermes uninstallation request."""
+
+    uninstalled_now: bool
+    already_absent: bool
+    data_preserved: bool

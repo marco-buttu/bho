@@ -107,15 +107,15 @@ The command should verify at least:
 
 #### `bho hermes install`
 
-Install Hermes Agent locally on the host machine.
+Install Hermes Agent locally on the host machine using the official Hermes installer. The command skips the interactive Hermes setup so configuration can remain a separate step. Existing installations are not overwritten.
 
-The first version will not offer a Docker installation mode for Hermes.
+The first version does not offer a Docker installation mode for Hermes.
 
 #### `bho hermes uninstall`
 
-Remove the Hermes Agent installation managed by `bho`.
+Remove a recognized Hermes Agent installation by invoking the official Hermes uninstaller. The command requires confirmation unless `--yes` is used.
 
-User data, sessions, memory, and configuration should not be deleted unless explicitly requested.
+User data, sessions, memory, credentials, and configuration are preserved because `bho` never passes the destructive `--full` option.
 
 #### `bho hermes configure`
 
@@ -334,23 +334,23 @@ bho git commit TASK_ID
 
 ### Phase 1: CLI foundation
 
-- [ ] Create the Python package.
-- [ ] Define the `bho` console entry point.
-- [ ] Implement `bho version`.
+- [x] Create the Python package.
+- [x] Define the `bho` console entry point.
+- [x] Implement `bho version`.
 - [ ] Implement global configuration paths.
 - [ ] Add structured error handling.
 - [ ] Add basic command logging.
-- [ ] Add automated tests for the CLI.
+- [x] Add automated tests for the CLI.
 
 ### Phase 2: Hermes management
 
-- [ ] Implement `bho hermes install`.
+- [x] Implement `bho hermes install`.
 - [x] Detect an existing Hermes installation.
-- [ ] Store the installed Hermes version.
+- [x] Store the installed Hermes version.
 - [x] Implement `bho hermes status`.
 - [ ] Implement `bho hermes configure`.
-- [ ] Implement `bho hermes uninstall`.
-- [ ] Preserve Hermes data by default during uninstall.
+- [x] Implement `bho hermes uninstall`.
+- [x] Preserve Hermes data by default during uninstall.
 - [ ] Add `bho hermes update`.
 
 ### Phase 3: Project registry
