@@ -12,7 +12,7 @@ def test_version_command() -> None:
     result = runner.invoke(app, ["version"])
 
     assert result.exit_code == 0
-    assert result.stdout.strip() == "bho 0.3.0"
+    assert result.stdout.strip() == "bho 0.5.0"
 
 
 def test_help_option() -> None:
