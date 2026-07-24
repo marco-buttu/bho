@@ -1,7 +1,30 @@
 """Data models for Hermes Agent integration."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass(frozen=True, slots=True)
+class HermesCommandMetadata:
+    """Describe metadata reported by a Hermes version command."""
+
+    version: str | None = None
+    install_directory: Path | None = None
+    install_method: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ManagedInstallationRecord:
+    """Describe a bho-managed Hermes installation marker."""
+
+    executable: Path
+    version: str | None
+    install_directory: Path | None
+    installer_source: str
+    hermes_install_method: str | None
+    installed_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -13,7 +36,9 @@ class HermesStatus:
     version: str | None
     configuration_present: bool
     managed_by_bho: bool
-    installation_method: str | None = None
+    installer_source: str | None = None
+    hermes_install_method: str | None = None
+    install_directory: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)

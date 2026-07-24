@@ -107,7 +107,7 @@ The command should verify at least:
 
 #### `bho hermes install`
 
-Install Hermes Agent locally on the host machine using the official Hermes installer. The command skips the interactive Hermes setup so configuration can remain a separate step. Existing installations are not overwritten.
+Install Hermes Agent locally on the host machine using the official Hermes installer. The command runs the installer with `--skip-setup` and `--non-interactive`, so provider setup, gateway setup, messaging bridges, and systemd services are not started. Existing installations are not overwritten. The external installer is subject to a timeout and its final state is always reconciled.
 
 The first version does not offer a Docker installation mode for Hermes.
 
@@ -115,7 +115,7 @@ The first version does not offer a Docker installation mode for Hermes.
 
 Remove a recognized Hermes Agent installation by invoking the official Hermes uninstaller. The command requires confirmation unless `--yes` is used.
 
-User data, sessions, memory, credentials, and configuration are preserved because `bho` never passes the destructive `--full` option.
+User data, sessions, memory, credentials, and configuration are preserved because `bho` never passes the destructive `--full` option. After uninstall, `bho hermes status` still reports whether the preserved Hermes data directory exists.
 
 #### `bho hermes configure`
 
@@ -125,7 +125,7 @@ The command may be interactive and should avoid exposing API keys in logs.
 
 #### `bho hermes status`
 
-Show whether Hermes Agent is installed, configured, and available.
+Show whether Hermes Agent is installed and whether configuration or user data is present. Installed systems report the executable, version, bho management state, installer source, and the installation method reported by Hermes.
 
 #### `bho hermes update`
 
