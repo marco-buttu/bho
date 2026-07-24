@@ -11,6 +11,30 @@ from bho.core.hermes.state import write_managed_installation
 from bho.core.hermes.uninstaller import uninstall_hermes
 
 
+def _status(
+    executable: Path | None,
+    *,
+    installed: bool,
+    managed: bool = False,
+    configuration_present: bool = True,
+    method: str | None = "git",
+) -> HermesStatus:
+    return HermesStatus(
+        installed=installed,
+        executable=executable if installed else None,
+        version="0.19.0" if installed else None,
+        configuration_present=configuration_present,
+        managed_by_bho=managed,
+        installer_source="official-user-installer" if managed else None,
+        hermes_install_method=method if installed else None,
+        install_directory=(
+            executable.parent.parent.parent / ".hermes" / "hermes-agent"
+            if installed and executable is not None
+            else None
+        ),
+    )
+
+
 def test_uninstalls_managed_hermes_and_removes_marker(tmp_path: Path) -> None:
     """A managed installation should use Hermes own data-preserving uninstaller."""
     data_dir = tmp_path / "bho-data"
@@ -19,24 +43,19 @@ def test_uninstalls_managed_hermes_and_removes_marker(tmp_path: Path) -> None:
     executable.touch()
     installed = True
 
-    initial = HermesStatus(
-        True,
-        executable,
-        "0.18.2",
-        True,
-        False,
-        "official-user-installer",
+    initial = _status(executable, installed=True)
+    write_managed_installation(
+        data_dir,
+        initial,
+        installer_source="official-user-installer",
     )
-    write_managed_installation(data_dir, initial)
 
     def fake_detect(**kwargs: object) -> HermesStatus:
-        return HermesStatus(
-            installed,
-            executable if installed else None,
-            "0.18.2" if installed else None,
-            True,
-            installed,
-            "official-user-installer" if installed else None,
+        return _status(
+            executable,
+            installed=installed,
+            managed=installed,
+            configuration_present=True,
         )
 
     def fake_run(
@@ -64,19 +83,12 @@ def test_uninstalls_managed_hermes_and_removes_marker(tmp_path: Path) -> None:
 
 
 def test_uninstalls_recognized_unmanaged_installation(tmp_path: Path) -> None:
-    """A recognized existing installation may be removed after CLI confirmation."""
+    """A recognized unmanaged installation may be removed after CLI confirmation."""
     executable = tmp_path / ".local" / "bin" / "hermes"
     installed = True
 
     def fake_detect(**kwargs: object) -> HermesStatus:
-        return HermesStatus(
-            installed,
-            executable if installed else None,
-            "0.18.2" if installed else None,
-            True,
-            False,
-            "official-user-installer" if installed else None,
-        )
+        return _status(executable, installed=installed, method="git")
 
     def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         nonlocal installed
@@ -97,7 +109,7 @@ def test_uninstalls_recognized_unmanaged_installation(tmp_path: Path) -> None:
 
 def test_missing_hermes_is_a_valid_state(tmp_path: Path) -> None:
     """Uninstalling an absent installation should succeed without running commands."""
-    missing = HermesStatus(False, None, None, True, False, None)
+    missing = _status(None, installed=False, configuration_present=True)
 
     result = uninstall_hermes(
         home_dir=tmp_path,
@@ -115,13 +127,10 @@ def test_missing_hermes_is_a_valid_state(tmp_path: Path) -> None:
 
 def test_unknown_unmanaged_installation_is_refused(tmp_path: Path) -> None:
     """An unrecognized unmanaged executable should not be removed automatically."""
-    unknown = HermesStatus(
-        True,
+    unknown = _status(
         tmp_path / "custom" / "hermes",
-        "0.18.2",
-        True,
-        False,
-        "unknown",
+        installed=True,
+        method="custom",
     )
 
     with pytest.raises(HermesOperationError, match="could not be identified safely"):
@@ -135,14 +144,7 @@ def test_unknown_unmanaged_installation_is_refused(tmp_path: Path) -> None:
 
 def test_uninstaller_failure_is_reported(tmp_path: Path) -> None:
     """A non-zero Hermes uninstaller result should fail the operation."""
-    installed = HermesStatus(
-        True,
-        tmp_path / "hermes",
-        "0.18.2",
-        True,
-        False,
-        "official-user-installer",
-    )
+    installed = _status(tmp_path / "hermes", installed=True, method="git")
 
     def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(args=args, returncode=4)
@@ -159,14 +161,7 @@ def test_uninstaller_failure_is_reported(tmp_path: Path) -> None:
 
 def test_uninstall_verification_failure_is_reported(tmp_path: Path) -> None:
     """A remaining executable after uninstall should fail verification."""
-    installed = HermesStatus(
-        True,
-        tmp_path / "hermes",
-        "0.18.2",
-        True,
-        False,
-        "official-user-installer",
-    )
+    installed = _status(tmp_path / "hermes", installed=True, method="git")
 
     with pytest.raises(HermesOperationError, match="still detected"):
         uninstall_hermes(
@@ -174,5 +169,30 @@ def test_uninstall_verification_failure_is_reported(tmp_path: Path) -> None:
             data_dir=tmp_path / "bho-data",
             environment={},
             detect_fn=lambda **kwargs: installed,
-            run_fn=lambda *args, **kwargs: subprocess.CompletedProcess(args=args, returncode=0),
+            run_fn=lambda *args, **kwargs: subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+            ),
         )
+
+
+def test_configuration_is_preserved_after_uninstall(tmp_path: Path) -> None:
+    """The post-uninstall status may remain configured while the CLI is absent."""
+    executable = tmp_path / ".local" / "bin" / "hermes"
+    states = [
+        _status(executable, installed=True, method="git"),
+        _status(None, installed=False, configuration_present=True),
+    ]
+
+    result = uninstall_hermes(
+        home_dir=tmp_path,
+        data_dir=tmp_path / "bho-data",
+        environment={},
+        detect_fn=lambda **kwargs: states.pop(0),
+        run_fn=lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+        ),
+    )
+
+    assert result.data_preserved is True

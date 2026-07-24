@@ -5,7 +5,10 @@ from __future__ import annotations
 import typer
 
 from bho.core.hermes.detector import detect_hermes_status
-from bho.core.hermes.errors import HermesOperationError
+from bho.core.hermes.errors import (
+    HermesOperationError,
+    HermesPartialInstallationError,
+)
 from bho.core.hermes.installer import OFFICIAL_INSTALL_SCRIPT_URL, install_hermes
 from bho.core.hermes.models import HermesStatus
 from bho.core.hermes.uninstaller import uninstall_hermes
@@ -31,10 +34,16 @@ def install() -> None:
         _render_installed_details(current)
         return
 
-    typer.echo("Installing Hermes Agent...")
+    typer.echo("Installing Hermes Agent non-interactively...")
     typer.echo(f"Installer: {OFFICIAL_INSTALL_SCRIPT_URL}")
+    typer.echo("Optional setup and gateway stages will be skipped.")
     try:
         result = install_hermes()
+    except HermesPartialInstallationError as error:
+        typer.echo(f"Error: {error}", err=True)
+        _render_installed_details(error.status)
+        typer.echo("Run `bho hermes status` to inspect the current state.", err=True)
+        raise typer.Exit(code=1) from error
     except HermesOperationError as error:
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(code=1) from error
@@ -79,11 +88,16 @@ def uninstall(
 
     typer.echo("Hermes Agent uninstalled successfully.")
     typer.echo("Configuration and user data were preserved.")
+    typer.echo("If your shell still reports the old Hermes path, run: hash -r")
 
 
 def _render_status(hermes_status: HermesStatus) -> None:
     if not hermes_status.installed:
         typer.echo("Hermes Agent: not installed")
+        typer.echo(
+            "Configuration: "
+            f"{'found' if hermes_status.configuration_present else 'not found'}"
+        )
         return
 
     typer.echo("Hermes Agent: installed")
@@ -104,5 +118,9 @@ def _render_installed_details(
     typer.echo(
         f"Managed by bho: {'yes' if hermes_status.managed_by_bho else 'no'}"
     )
-    if status_format and hermes_status.installation_method:
-        typer.echo(f"Installation method: {hermes_status.installation_method}")
+    if status_format:
+        typer.echo(f"Installer source: {hermes_status.installer_source or 'unknown'}")
+        typer.echo(
+            "Hermes install method: "
+            f"{hermes_status.hermes_install_method or 'unknown'}"
+        )

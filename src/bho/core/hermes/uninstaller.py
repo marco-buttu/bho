@@ -15,9 +15,8 @@ from bho.core.hermes.state import remove_managed_installation
 RunFunction = Callable[..., subprocess.CompletedProcess[str]]
 DetectFunction = Callable[..., HermesStatus]
 
-_SUPPORTED_UNINSTALL_METHODS = {
-    "official-user-installer",
-    "official-root-installer",
+_SUPPORTED_HERMES_INSTALL_METHODS = {
+    "git",
     "pip",
     "homebrew",
     "nix",
@@ -48,7 +47,7 @@ def uninstall_hermes(
 
     if (
         not before.managed_by_bho
-        and before.installation_method not in _SUPPORTED_UNINSTALL_METHODS
+        and before.hermes_install_method not in _SUPPORTED_HERMES_INSTALL_METHODS
     ):
         raise HermesOperationError(
             "The Hermes installation method could not be identified safely. "
@@ -62,7 +61,9 @@ def uninstall_hermes(
             env=env,
         )
     except OSError as error:
-        raise HermesOperationError(f"Could not start the Hermes uninstaller: {error}") from error
+        raise HermesOperationError(
+            f"Could not start the Hermes uninstaller: {error}"
+        ) from error
 
     if result.returncode != 0:
         raise HermesOperationError(

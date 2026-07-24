@@ -8,9 +8,9 @@ import subprocess
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from bho.core.hermes.models import HermesStatus
-from bho.core.hermes.state import is_managed_installation
-from bho.core.hermes.version import parse_hermes_version
+from bho.core.hermes.models import HermesCommandMetadata, HermesStatus
+from bho.core.hermes.state import read_matching_managed_installation
+from bho.core.hermes.version import parse_hermes_metadata
 
 WhichFunction = Callable[[str], str | None]
 RunFunction = Callable[..., subprocess.CompletedProcess[str]]
@@ -30,11 +30,10 @@ def detect_hermes_status(
     home = (home_dir or Path.home()).expanduser()
     bho_data_dir = data_dir or default_bho_data_dir(home, env)
 
-    executable = _find_executable(executable_name, home, env, which_fn)
     configuration_present = any(
         candidate.exists() for candidate in configuration_candidates(home, env)
     )
-    managed_by_bho = is_managed_installation(bho_data_dir, executable)
+    executable = _find_executable(executable_name, home, env, which_fn)
 
     if executable is None:
         return HermesStatus(
@@ -43,16 +42,29 @@ def detect_hermes_status(
             version=None,
             configuration_present=configuration_present,
             managed_by_bho=False,
-            installation_method=None,
+            installer_source=None,
+            hermes_install_method=None,
+            install_directory=None,
         )
+
+    metadata = _detect_metadata(executable, run_fn)
+    marker = read_matching_managed_installation(
+        bho_data_dir,
+        executable=executable,
+        version=metadata.version,
+        install_directory=metadata.install_directory,
+        hermes_install_method=metadata.install_method,
+    )
 
     return HermesStatus(
         installed=True,
         executable=executable,
-        version=_detect_version(executable, run_fn),
+        version=metadata.version,
         configuration_present=configuration_present,
-        managed_by_bho=managed_by_bho,
-        installation_method=detect_installation_method(executable, home, env),
+        managed_by_bho=marker is not None,
+        installer_source=marker.installer_source if marker else None,
+        hermes_install_method=metadata.install_method,
+        install_directory=metadata.install_directory,
     )
 
 
@@ -84,39 +96,6 @@ def configuration_candidates(
     return tuple(candidates)
 
 
-def detect_installation_method(
-    executable: Path,
-    home: Path,
-    environment: Mapping[str, str],
-) -> str:
-    """Identify supported Hermes installation layouts conservatively."""
-    resolved = executable.expanduser().resolve(strict=False)
-    hermes_home = Path(environment.get("HERMES_HOME", home / ".hermes")).expanduser()
-    user_repo = (hermes_home / "hermes-agent").resolve(strict=False)
-
-    if _is_within(resolved, user_repo) or (
-        executable.expanduser() == home / ".local" / "bin" / "hermes"
-        and user_repo.exists()
-    ):
-        return "official-user-installer"
-
-    root_repo = Path("/usr/local/lib/hermes-agent")
-    if _is_within(resolved, root_repo) or (
-        executable == Path("/usr/local/bin/hermes") and root_repo.exists()
-    ):
-        return "official-root-installer"
-
-    executable_text = str(resolved)
-    if "/Cellar/" in executable_text or executable_text.startswith("/opt/homebrew/"):
-        return "homebrew"
-    if executable_text.startswith("/nix/store/"):
-        return "nix"
-    if "site-packages" in executable_text or "dist-packages" in executable_text:
-        return "pip"
-
-    return "unknown"
-
-
 def _find_executable(
     executable_name: str,
     home: Path,
@@ -125,7 +104,9 @@ def _find_executable(
 ) -> Path | None:
     executable_value = which_fn(executable_name)
     if executable_value:
-        return Path(executable_value).expanduser().resolve(strict=False)
+        candidate = Path(executable_value).expanduser()
+        if candidate.is_file():
+            return candidate.absolute()
 
     hermes_home = Path(environment.get("HERMES_HOME", home / ".hermes")).expanduser()
     fallback_candidates = (
@@ -135,11 +116,14 @@ def _find_executable(
     )
     for candidate in fallback_candidates:
         if candidate.is_file():
-            return candidate.resolve(strict=False)
+            return candidate.absolute()
     return None
 
 
-def _detect_version(executable: Path, run_fn: RunFunction) -> str | None:
+def _detect_metadata(
+    executable: Path,
+    run_fn: RunFunction,
+) -> HermesCommandMetadata:
     for arguments in (
         [str(executable), "version"],
         [str(executable), "--version"],
@@ -159,16 +143,8 @@ def _detect_version(executable: Path, run_fn: RunFunction) -> str | None:
             continue
 
         output = "\n".join(part for part in (result.stdout, result.stderr) if part)
-        version = parse_hermes_version(output)
-        if version:
-            return version
+        metadata = parse_hermes_metadata(output)
+        if metadata.version or metadata.install_directory or metadata.install_method:
+            return metadata
 
-    return None
-
-
-def _is_within(path: Path, parent: Path) -> bool:
-    try:
-        path.relative_to(parent.resolve(strict=False))
-    except ValueError:
-        return False
-    return True
+    return HermesCommandMetadata()
