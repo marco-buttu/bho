@@ -119,9 +119,81 @@ User data, sessions, memory, credentials, and configuration are preserved becaus
 
 #### `bho hermes configure`
 
-Configure Hermes Agent and the selected language model provider.
+Prepare a dedicated Hermes profile named `bho` for software-development work.
+The command:
 
-The command may be interactive and should avoid exposing API keys in logs.
+- requires Hermes Agent and ensures that Docker is installed, running, and accessible to the current user;
+- creates a blank `bho` profile without changing the globally active profile;
+- proposes subscription-backed OAuth providers before separately billed API providers;
+- recommends OpenAI Codex through ChatGPT OAuth first when supported and no already-authenticated subscription provider has priority;
+- opens the official `hermes -p bho model` wizard for authentication and model selection;
+- configures Docker as the terminal backend;
+- mounts the future project launch directory at `/workspace`;
+- runs containers as the host user when supported;
+- forwards no host credential variables into Docker by default;
+- runs Hermes diagnostics and one minimal live model check;
+- stores only non-secret verification metadata in the local `bho` data directory.
+
+Hermes remains the owner of API keys, OAuth tokens, provider configuration,
+memory, and sessions. `bho` does not copy secrets into its own state.
+
+Use:
+
+```bash
+bho hermes configure
+```
+
+To validate the profile without consuming model usage:
+
+```bash
+bho hermes configure --skip-live-check
+```
+
+A skipped live check records the profile as configured but not ready. Running the
+command again reuses the existing profile, preserves memory and sessions, and
+allows the user to keep or reconfigure the current provider and model.
+
+The command does not configure gateway services, messaging platforms, systemd,
+voice, image generation, browser automation, cron jobs, or unrelated optional
+tools.
+
+##### Guided Docker setup
+
+Before creating or modifying the Hermes profile, `bho hermes configure` checks
+Docker and distinguishes these states:
+
+- Docker is not installed;
+- Docker is installed but the daemon is stopped;
+- Docker is installed but the current user cannot access the daemon;
+- the user has already been added to the `docker` group, but the current login
+  session has not loaded the new membership;
+- Docker is ready.
+
+When Docker is absent on a Debian-, Ubuntu-, or Linux Mint-based system using
+`apt`, `bho` displays the exact privileged commands and asks before installing
+the distribution package `docker.io`, enabling the service, and starting it.
+Unsupported systems receive manual installation guidance instead of guessed
+package-manager commands.
+
+Starting the Docker service and adding the current user to the `docker` group
+require separate confirmation. `bho` warns that membership in the `docker`
+group grants root-level privileges. After group membership changes, the command
+stops and requires a complete logout and login before configuration can resume.
+It never runs `sudo bho hermes configure` and never performs privileged changes
+silently.
+
+##### Provider billing policy
+
+Provider recommendations follow this order:
+
+1. subscription-backed OAuth providers already authenticated in Hermes;
+2. other subscription-backed OAuth providers supported by Hermes;
+3. API-key providers already configured;
+4. providers requiring a new API key or separate usage billing.
+
+OpenAI Codex through ChatGPT OAuth uses the models and limits available to the
+user's ChatGPT plan. OpenAI API-key access is a separate billing path. The
+Hermes wizard remains authoritative for the provider and model list.
 
 #### `bho hermes status`
 
@@ -348,7 +420,8 @@ bho git commit TASK_ID
 - [x] Detect an existing Hermes installation.
 - [x] Store the installed Hermes version.
 - [x] Implement `bho hermes status`.
-- [ ] Implement `bho hermes configure`.
+- [x] Implement `bho hermes configure`.
+- [x] Add guided Docker installation, service startup, and permission repair.
 - [x] Implement `bho hermes uninstall`.
 - [x] Preserve Hermes data by default during uninstall.
 - [ ] Add `bho hermes update`.
@@ -367,7 +440,7 @@ bho git commit TASK_ID
 
 ### Phase 4: Docker project environments
 
-- [ ] Verify that Docker is available.
+- [x] Verify that Docker is available.
 - [ ] Define the initial project container strategy.
 - [ ] Mount only the required project directory.
 - [ ] Prevent access to unrelated host directories.

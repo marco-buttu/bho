@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bho"
-version = "0.3.0"
+version = "0.5.0"
 description = "A command-line control layer for Hermes Agent and managed software projects."
 readme = "README.md"
 requires-python = ">=3.11"
